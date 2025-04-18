@@ -18,3 +18,6 @@ admin.initializeApp({
     client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT_URL,
   }),
 });
+
+// ✅ Export the initialized admin instance
+module.exports = admin;
