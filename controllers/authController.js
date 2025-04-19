@@ -86,9 +86,9 @@ const verifyEmail = async (req, res) => {
   }
 };
 
-// ✅ Updated login function with fresh user fetch
+// ✅ Updated login function with user name in the response
 const login = async (req, res) => {
-  const { email } = req.body;
+  const { email, password } = req.body;
 
   try {
     const user = await User.findOne({ email });
@@ -97,13 +97,13 @@ const login = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Step 1: Get Firebase user record (cached)
+    // Step 1: Get Firebase user record
     const userRecord = await admin.auth().getUserByEmail(email);
 
-    // ✅ Step 2: Refresh the Firebase user to ensure emailVerified is up-to-date
+    // Step 2: Refresh user to ensure email verification status is up-to-date
     const refreshedUser = await admin.auth().getUser(userRecord.uid);
 
-    // ✅ Step 3: If Firebase says verified but Mongo doesn't, update Mongo
+    // Step 3: Sync verification status with MongoDB
     if (refreshedUser.emailVerified && !user.verified) {
       await User.findOneAndUpdate(
         { email },
@@ -118,14 +118,29 @@ const login = async (req, res) => {
       });
     }
 
-    const token = jwt.sign({ uid: refreshedUser.uid, email }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    // Step 4: Generate token
+    const token = jwt.sign({ uid: refreshedUser.uid, email }, process.env.JWT_SECRET, {
+      expiresIn: '1h',
+    });
 
-    res.status(200).json({ message: 'Login successful', token });
+    // ✅ Return token + user details including name
+    res.status(200).json({
+      message: 'Login successful',
+      token,
+      user: {
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        verified: user.verified,
+      },
+    });
+
   } catch (error) {
     console.error('Login Error:', error);
     res.status(400).json({ message: 'Login failed', error });
   }
 };
+
 
 // Send password reset email
 const forgotPassword = async (req, res) => {
